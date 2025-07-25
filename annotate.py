@@ -187,12 +187,29 @@ class Annotator:
                 elif key == ord('s'):  # Save annotations
                     self.save_yolo_format()
                     print(f"Annotations saved for {image_path}")
+                elif key == ord('f'):  # Find next image with specified class id
+                    try:
+                        target_class = int(input("Enter class id to search for: "))
+                    except ValueError:
+                        print("Invalid class id.")
+                        continue
+                    found = False
+                    for idx in range(self.current_image_index + 1, len(self.image_paths)):
+                        labels = self.load_labels(self.image_paths[idx])
+                        if any(box[1] == target_class for box in labels):
+                            self.current_image_index = idx
+                            found = True
+                            break
+                    if not found:
+                        print(f"No next image found with class id {target_class}")
+                    break
                 elif key == ord('m'):  # Modify a box
                     self.modifying = True
                     self.modifying_track_id = int(input("Enter track ID to modify: "))
                 elif key == ord('d'):  # Delete a box
                     del_id = int(input("Enter track ID to delete: "))
                     self.boxes = [box for box in self.boxes if box[0] != del_id]
+                    self.save_yolo_format()
                     self.redraw_image()
                     print(f"Deleted box with track ID {del_id}")
                 elif key in map(ord, map(str, range(len(self.classes)))):  # Change class
