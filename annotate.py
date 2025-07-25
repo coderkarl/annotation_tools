@@ -1,12 +1,12 @@
+import argparse
 import cv2
 import os
 import glob
-import sys
 
 class Annotator:
-    def __init__(self, dataset_dir):
+    def __init__(self, dataset_dir, class_filepath=None):
         self.dataset_dir = dataset_dir
-        self.classes = self.load_classes()
+        self.classes = self.load_classes(class_filepath)
         self.image_paths = self.load_images()
         self.current_image_index = 0
         self.boxes = []  # List of (track_id, class_id, x_min, y_min, x_max, y_max)
@@ -20,13 +20,22 @@ class Annotator:
         self.track_id_counter = 0
         self.colors = self.generate_colors()
 
-    def load_classes(self):
-        classes_path = os.path.join(self.dataset_dir, "classes.txt")
+    def load_classes(self, class_filepath):
+        if class_filepath is None:
+            classes_path = os.path.join(self.dataset_dir, "classes.txt")
+        else:
+            classes_path = class_filepath
+        if not os.path.exists(classes_path):
+            raise FileNotFoundError(f"Classes file not found: {classes_path}")
         with open(classes_path, "r") as f:
             return [line.strip() for line in f.readlines()]
 
     def load_images(self):
-        image_paths = sorted(glob.glob(os.path.join(self.dataset_dir, "images", "*.jpg")))
+        img_extensions = ["*.jpg", "*.jpeg", "*.png"]
+        image_paths = []
+        for ext in img_extensions:
+            image_paths.extend(glob.glob(os.path.join(self.dataset_dir, "images", ext)))
+        image_paths = sorted(image_paths)
         if not image_paths:
             raise FileNotFoundError("No images found in the dataset directory.")
         return image_paths
@@ -196,10 +205,13 @@ class Annotator:
             cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python annotate.py <directory_path>")
-        sys.exit(1)
-    
-    dataset_dir = sys.argv[1]
-    annotator = Annotator(dataset_dir)
+    parser = argparse.ArgumentParser(description="Image annotation tool")
+    parser.add_argument("directory_path", help="Dataset directory")
+    parser.add_argument("-c", "--classes", default=None, help="Path to classes.txt file")
+    args = parser.parse_args()
+
+    dataset_dir = args.directory_path
+    classes_path = args.classes
+
+    annotator = Annotator(dataset_dir, class_filepath=classes_path)
     annotator.annotate()
