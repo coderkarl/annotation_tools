@@ -2,6 +2,55 @@ import argparse
 import cv2
 import os
 import glob
+import numpy as np
+
+def get_int_from_popup(prompt):
+    """Show a popup window to get an integer from the user."""
+    win_name = "Input"
+    cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(win_name, 400, 60)
+    img = 255 * np.ones((60, 400, 3), dtype=np.uint8)
+    cv2.putText(img, prompt, (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,0), 2)
+    cv2.imshow(win_name, img)
+    cv2.waitKey(1)
+    value = ""
+    while True:
+        k = cv2.waitKey(0)
+        if k == 13 or k == 10:  # Enter
+            break
+        elif k == 27:  # ESC
+            value = None
+            break
+        elif k == 8:  # Backspace
+            value = value[:-1]
+        elif 48 <= k <= 57:  # 0-9
+            value += chr(k)
+        # redraw
+        img = 255 * np.ones((60, 400, 3), dtype=np.uint8)
+        cv2.putText(img, prompt + value, (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,0), 2)
+        cv2.imshow(win_name, img)
+    cv2.destroyWindow(win_name)
+    return int(value) if value and value.isdigit() else None
+
+def show_help_popup():
+    win_name = "Help"
+    help_text = [
+        "n: Next image",
+        "p: Previous image",
+        "s: Save annotations",
+        "f: Find next image with class id",
+        "m: Modify box (enter track id)",
+        "d: Delete box (enter track id)",
+        "0-9: Set current class",
+        "ESC: Exit",
+        "h: Show this help"
+    ]
+    img = 255 * np.ones((300, 400, 3), dtype=np.uint8)
+    for i, line in enumerate(help_text):
+        cv2.putText(img, line, (10, 30 + i*30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,0), 2)
+    cv2.imshow(win_name, img)
+    cv2.waitKey(0)
+    cv2.destroyWindow(win_name)
 
 class Annotator:
     def __init__(self, dataset_dir, class_filepath=None):
@@ -188,10 +237,8 @@ class Annotator:
                     self.save_yolo_format()
                     print(f"Annotations saved for {image_path}")
                 elif key == ord('f'):  # Find next image with specified class id
-                    try:
-                        target_class = int(input("Enter class id to search for: "))
-                    except ValueError:
-                        print("Invalid class id.")
+                    target_class = get_int_from_popup("Class id to search for: ")
+                    if target_class is None:
                         continue
                     found = False
                     for idx in range(self.current_image_index + 1, len(self.image_paths)):
@@ -204,14 +251,20 @@ class Annotator:
                         print(f"No next image found with class id {target_class}")
                     break
                 elif key == ord('m'):  # Modify a box
-                    self.modifying = True
-                    self.modifying_track_id = int(input("Enter track ID to modify: "))
+                    mod_id = get_int_from_popup("Track ID to modify: ")
+                    if mod_id is not None:
+                        self.modifying = True
+                        self.modifying_track_id = mod_id
                 elif key == ord('d'):  # Delete a box
-                    del_id = int(input("Enter track ID to delete: "))
-                    self.boxes = [box for box in self.boxes if box[0] != del_id]
-                    self.save_yolo_format()
+                    del_id = get_int_from_popup("Track ID to delete: ")
+                    if del_id is not None:
+                        self.boxes = [box for box in self.boxes if box[0] != del_id]
+                        self.save_yolo_format()
+                        self.redraw_image()
+                        print(f"Deleted box with track ID {del_id}")
+                elif key == ord('h'):  # Show help
+                    show_help_popup()
                     self.redraw_image()
-                    print(f"Deleted box with track ID {del_id}")
                 elif key in map(ord, map(str, range(len(self.classes)))):  # Change class
                     self.current_class_id = int(chr(key))
                     print(f"Current class set to {self.current_class_id}: {self.classes[self.current_class_id]}")
