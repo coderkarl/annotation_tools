@@ -162,7 +162,7 @@ class Annotator:
         img_h, img_w = self.img.shape[:2]
 
         # Default position: above the box
-        # If above is outside, put inside the box
+        # If above is outside, put inside the box   
 
         # Draw all saved bounding boxes
         for track_id, class_id, x_min, y_min, x_max, y_max in self.boxes:
@@ -177,8 +177,9 @@ class Annotator:
         # Draw the unsaved box if it exists
         if self.unsaved_box:
             track_id, class_id, x_min, y_min, x_max, y_max = self.unsaved_box
-            color = self.colors[class_id]
-            cv2.rectangle(self.img, (x_min, y_min), (x_max, y_max), color, 2)
+            #color = self.colors[class_id]
+            color = (0, 0, 0)
+            cv2.rectangle(self.img, (x_min, y_min), (x_max, y_max), color, 1)
             text_x, text_y = x_min + 5, y_min - 10
             text_edge_buffer = 20
             if text_y < text_edge_buffer:
