@@ -105,16 +105,7 @@ class Annotator:
 
     def draw_rectangle(self, event, x, y, flags, param):
         if event == cv2.EVENT_LBUTTONDOWN:
-            if self.modifying:
-                # Modify an existing box
-                for i, (track_id, class_id, x_min, y_min, x_max, y_max) in enumerate(self.boxes):
-                    if track_id == self.modifying_track_id:
-                        self.boxes[i] = (track_id, class_id, min(self.ix, x), min(self.iy, y), max(self.ix, x), max(self.iy, y))
-                        self.modifying = False
-                        self.modifying_track_id = None
-                        self.redraw_image()
-                        return
-            elif not self.drawing:
+            if not self.drawing:
                 # First click: set the first corner
                 self.drawing = True
                 self.ix, self.iy = x, y
@@ -123,7 +114,15 @@ class Annotator:
                 self.drawing = False
                 x_min, y_min = min(self.ix, x), min(self.iy, y)
                 x_max, y_max = max(self.ix, x), max(self.iy, y)
-                self.unsaved_box = (self.track_id_counter, self.current_class_id, x_min, y_min, x_max, y_max)
+                if self.modifying:
+                    # Modify an existing box
+                    for i, (track_id, class_id, x1, y1, x2, y2) in enumerate(self.boxes):
+                        if track_id == self.modifying_track_id:
+                            self.boxes[i] = (track_id, class_id, x_min, y_min, x_max, y_max)
+                            self.modifying = False
+                            self.modifying_track_id = None
+                else:
+                    self.unsaved_box = (self.track_id_counter, self.current_class_id, x_min, y_min, x_max, y_max)
                 self.redraw_image()
 
     def load_labels(self, image_path):
