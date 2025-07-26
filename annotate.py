@@ -6,7 +6,7 @@ import numpy as np
 
 def get_int_from_popup(prompt):
     """Show a popup window to get an integer from the user."""
-    win_name = "Input"
+    win_name = f"Input ({prompt})"
     cv2.namedWindow(win_name, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(win_name, 400, 60)
     img = 255 * np.ones((60, 400, 3), dtype=np.uint8)
@@ -33,7 +33,7 @@ def get_int_from_popup(prompt):
     return int(value) if value and value.isdigit() else None
 
 def show_help_popup():
-    win_name = "Help"
+    win_name = "Help (Press any key to close)"
     help_text = [
         "n: Next image",
         "p: Previous image",
@@ -68,6 +68,9 @@ class Annotator:
         self.unsaved_box = None
         self.track_id_counter = 0
         self.colors = self.generate_colors()
+
+        self.window_name = "ImageWindow"
+        cv2.namedWindow(self.window_name) #, cv2.WINDOW_NORMAL)
 
     def load_classes(self, class_filepath):
         if class_filepath is None:
@@ -149,6 +152,8 @@ class Annotator:
     def redraw_image(self):
         """Redraw the image with all bounding boxes and the legend."""
         self.img = cv2.imread(self.image_paths[self.current_image_index])
+        img_name = os.path.basename(self.image_paths[self.current_image_index])
+        cv2.setWindowTitle(self.window_name, f"Image - {img_name}")
 
         # Load existing labels if not already loaded
         if not self.boxes:
@@ -156,13 +161,14 @@ class Annotator:
 
         img_h, img_w = self.img.shape[:2]
 
+        # Default position: above the box
+        # If above is outside, put inside the box
+
         # Draw all saved bounding boxes
         for track_id, class_id, x_min, y_min, x_max, y_max in self.boxes:
             color = self.colors[class_id]
             cv2.rectangle(self.img, (x_min, y_min), (x_max, y_max), color, 2)
-            # Default position: above the box
             text_x, text_y = x_min + 5, y_min - 10
-            # If above is outside, put inside the box
             text_edge_buffer = 20
             if text_y < text_edge_buffer:
                 text_y = y_min + 15
@@ -181,7 +187,7 @@ class Annotator:
 
         # Show the legend
         self.show_legend()
-        cv2.imshow("Image", self.img)
+        cv2.imshow(self.window_name, self.img)
 
     def show_legend(self):
         y_offset = 20
@@ -212,29 +218,31 @@ class Annotator:
                 f.write(f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}\n")
 
     def annotate(self):
+        
+        cv2.setMouseCallback(self.window_name, self.draw_rectangle)
         while 0 <= self.current_image_index < len(self.image_paths):
             image_path = self.image_paths[self.current_image_index]
-            self.img = cv2.imread(image_path)
             self.boxes = []
             self.unsaved_box = None
             self.track_id_counter = 0
 
-            cv2.namedWindow("Image")
-            cv2.setMouseCallback("Image", self.draw_rectangle)
             self.redraw_image()
 
             while True:
                 key = cv2.waitKey(1) & 0xFF
 
                 if key == ord('n'):  # Next image
-                    self.current_image_index += 1
+                    self.current_image_index = min(self.current_image_index + 1, len(self.image_paths) - 1)
+                    self.redraw_image()
                     break
                 elif key == ord('p'):  # Previous image
                     self.current_image_index = max(0, self.current_image_index - 1)
+                    self.redraw_image()
                     break
                 elif key == ord('s'):  # Save annotations
                     self.save_yolo_format()
                     print(f"Annotations saved for {image_path}")
+                    self.redraw_image()
                 elif key == ord('f'):  # Find next image with specified class id
                     target_class = get_int_from_popup("Class id to search for: ")
                     if target_class is None:
@@ -248,10 +256,11 @@ class Annotator:
                             break
                     if not found:
                         print(f"No next image found with class id {target_class}")
+                    self.redraw_image()
                     break
                 elif key == ord('m'):  # Modify a box
                     mod_id = get_int_from_popup("Track ID to modify: ")
-                    if mod_id is not None:
+                    if mod_id is not None and mod_id >= 0 and mod_id < self.track_id_counter:
                         self.modifying = True
                         self.modifying_track_id = mod_id
                 elif key == ord('d'):  # Delete a box
@@ -267,11 +276,12 @@ class Annotator:
                 elif key in map(ord, map(str, range(len(self.classes)))):  # Change class
                     self.current_class_id = int(chr(key))
                     print(f"Current class set to {self.current_class_id}: {self.classes[self.current_class_id]}")
+                    self.redraw_image()
                 elif key == 27:  # ESC to exit
                     cv2.destroyAllWindows()
                     return
 
-            cv2.destroyAllWindows()
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Image annotation tool")
